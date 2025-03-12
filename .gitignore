@@ -1,0 +1,5 @@
+.venv/
+.env/
+.keys
+uploads/**
+**/__pycache__/**

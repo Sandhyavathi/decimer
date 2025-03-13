@@ -149,7 +149,7 @@ with col2:
                     ranked_compounds = result["pubchemResults"]["similarCompound"]
                     for i, compound in enumerate(ranked_compounds):
                         st.markdown(f'<div class="compound-card">', unsafe_allow_html=True)
-                        col_a, col_b = st.columns([2, 1]
+                        col_a, col_b = st.columns([2, 1])
                         
                     with col_a:
                         st.markdown(f"**Name:** {compound['recordTitle']}")

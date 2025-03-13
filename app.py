@@ -267,7 +267,7 @@ async def fetch_compound_data(session, cid):
             "cid": cid
         }
 
-async def get_similar_compounds_async(cid: int, topk=5) -> List[dict]:
+async def get_similar_compounds_async(cid: int, topk=10) -> List[dict]:
     """Asynchronous version of get_similar_compound"""
     similar_compound_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/fastsimilarity_2d/cid/{cid}/cids/JSON"
     
@@ -283,7 +283,7 @@ async def get_similar_compounds_async(cid: int, topk=5) -> List[dict]:
         
         return similar_compounds
 
-def get_similar_compound(cid: int, topk=5) -> List[dict]:
+def get_similar_compound(cid: int, topk=10) -> List[dict]:
     """Optimized synchronous wrapper for the async implementation"""
     return asyncio.run(get_similar_compounds_async(cid, topk))
 
@@ -323,7 +323,7 @@ def rank_similar_compounds(base_smile, similar_compounds):
                 ranked_compounds.append(compound)
     
     # Sort based on similarity score (highest first)
-    ranked_compounds = sorted(ranked_compounds, key=lambda x: x["similarity_score"], reverse=True)
+    ranked_compounds = sorted(ranked_compounds, key=lambda x: x["similarity_score"], reverse=True)[:10]
     
     return ranked_compounds
 

@@ -147,10 +147,13 @@ with col2:
             with tabs[1]:
                 if "similarCompound" in result["pubchemResults"] and result["pubchemResults"]["similarCompound"]:
                     ranked_compounds = result["pubchemResults"]["similarCompound"]
+                    st.markdown("### Top 10 Similar Compounds (Ranked by Similarity)")
+
                     for i, compound in enumerate(ranked_compounds):
                         st.markdown(f'<div class="compound-card">', unsafe_allow_html=True)
+
                         col_a, col_b = st.columns([2, 1])
-                        
+
                     with col_a:
                         st.markdown(f"**Name:** {compound['recordTitle']}")
                         st.markdown(f"**Compound ID:** {compound['cid']}")
@@ -160,14 +163,16 @@ with col2:
                         similarity_score = compound.get('similarity_score')
                         if similarity_score is not None:
                             st.markdown(f"**Similarity Score:** `{similarity_score:.4f}`")
+
                     with col_b:
                         mol_img = render_molecule(compound['smile'])
                         if mol_img:
                             st.image(mol_img, use_column_width=True)
-                            
+            
                     st.markdown('</div>', unsafe_allow_html=True)
-                else:
-                    st.info("No similar compounds found.")
+            else:
+                st.info("No similar compounds found.")
+
         
         # Patents tab
         with tabs[2]:

@@ -170,8 +170,8 @@ with col2:
                             st.image(mol_img, use_column_width=True)
             
                     st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.info("No similar compounds found.")
+                else:
+                    st.info("No similar compounds found.")
 
         
         # Patents tab

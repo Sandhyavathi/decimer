@@ -146,32 +146,33 @@ with col2:
         # Similar compounds tab 
             with tabs[1]:
                 if "similarCompound" in result["pubchemResults"] and result["pubchemResults"]["similarCompound"]:
-                    ranked_compounds = result["pubchemResults"]["similarCompound"]
+                    ranked_compounds = result["pubchemResults"]["similarCompound"][:10]  # ✅ Limit to top 10
                     st.markdown("### Top 10 Similar Compounds (Ranked by Similarity)")
-
+            
                     for i, compound in enumerate(ranked_compounds):
                         st.markdown(f'<div class="compound-card">', unsafe_allow_html=True)
-
-                        col_a, col_b = st.columns([2, 1])
-
-                    with col_a:
-                        st.markdown(f"**Name:** {compound['recordTitle']}")
-                        st.markdown(f"**Compound ID:** {compound['cid']}")
-                        st.markdown(f"**IUPAC Name:** {compound.get('iupacName', 'N/A')}")
-                        st.markdown(f"**SMILES:** {compound['smile']}")
-                        # ✅ Display similarity score
-                        similarity_score = compound.get('similarity_score')
-                        if similarity_score is not None:
-                            st.markdown(f"**Similarity Score:** `{similarity_score:.4f}`")
-
-                    with col_b:
-                        mol_img = render_molecule(compound['smile'])
-                        if mol_img:
-                            st.image(mol_img, use_column_width=True)
             
-                    st.markdown('</div>', unsafe_allow_html=True)
+                        col_a, col_b = st.columns([2, 1])
+            
+                        with col_a:
+                            st.markdown(f"**Name:** {compound['recordTitle']}")
+                            st.markdown(f"**Compound ID:** {compound['cid']}")
+                            st.markdown(f"**IUPAC Name:** {compound.get('iupacName', 'N/A')}")
+                            st.markdown(f"**SMILES:** {compound['smile']}")
+                            # ✅ Display similarity score
+                            similarity_score = compound.get('similarity_score')
+                            if similarity_score is not None:
+                                st.markdown(f"**Similarity Score:** `{similarity_score:.4f}`")
+            
+                        with col_b:
+                            mol_img = render_molecule(compound['smile'])
+                            if mol_img:
+                                st.image(mol_img, use_container_width=True)  # ✅ Fix deprecated warning
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.info("No similar compounds found.")
+
 
         
         # Patents tab

@@ -42,12 +42,16 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         height: 4rem;
     }
-    .compound-card {
-        background-color: white;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-        margin-bottom: 1rem;
+    background-color: #f9f9f9;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+    .similarity-score {
+        font-size: 16px;
+        color: #4CAF50;
     }
 </style>
 """, unsafe_allow_html=True)

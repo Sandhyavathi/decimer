@@ -47,10 +47,11 @@ def allowed_file(filename):
 
 
 def load_model():
-    model_paths = {'DECIMER': './.data/DECIMER_model'}
+    model_paths["DECIMER"] = "/kaggle/working/models/DECIMER_model"
     tokenizer_path = os.path.join(
-            model_paths["DECIMER"], "assets", "tokenizer_SMILES.pkl"
-        )
+        model_paths["DECIMER"], "assets", "tokenizer_SMILES.pkl"
+    )
+
     tokenizer = pickle.load(open(tokenizer_path, "rb"))
     model = tf.saved_model.load(model_paths["DECIMER"])
 

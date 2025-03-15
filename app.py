@@ -52,6 +52,7 @@ import requests
 from io import BytesIO
 
 def load_model():
+    model, tokenizer = None, None
     model_dir = "/root/decimer/models/DECIMER_model"
     
     #  Create directory if not exists

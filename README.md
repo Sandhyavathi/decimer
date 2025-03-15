@@ -2,11 +2,15 @@
 
 Need to use python 3.10 [Hard Requirement]
 
+Download and cache model
+```shell
+$> python ensure_model.py
+```
+
+
 Run to start a server
 ```shell
 $> python3 app.py
-
-
 ```
 
 Copy paste this curl into postman to use it

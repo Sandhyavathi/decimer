@@ -42,16 +42,12 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         height: 4rem;
     }
-    background-color: #f9f9f9;
-        padding: 15px;
-        margin-bottom: 10px;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-    }
-    .similarity-score {
-        font-size: 16px;
-        color: #4CAF50;
+    .compound-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        margin-bottom: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -78,7 +74,7 @@ def process_image(image_file):
         files = {"image": image_file}
         response = requests.post(url, files=files)
         response.raise_for_status()
-        return response.json()  # Ensure JSON format matches the new API output
+        return response.json()
     except requests.exceptions.RequestException as e:
         st.error(f"API Error: {str(e)}")
         return None
@@ -124,9 +120,9 @@ with col2:
         st.markdown(f'<div class="smile-box">{result["detectedSmile"]}</div>', unsafe_allow_html=True)
         
         # Render the detected molecule
-        detected_mol_img = render_molecule(result["detectedSmile"])
-        if detected_mol_img:
-            st.image(detected_mol_img, caption="Rendered Structure", use_column_width=True)
+        # detected_mol_img = render_molecule(result["detectedSmile"])
+        # if detected_mol_img:
+        #     st.image(detected_mol_img, caption="Rendered Structure", use_column_width=True)
         
         # Create tabs for different result sections
         tabs = st.tabs(["Current Compound", "Similar Compounds", "Patents"])
@@ -143,37 +139,27 @@ with col2:
             else:
                 st.info("No current compound information available.")
         
-        # Similar compounds tab 
-            with tabs[1]:
-                if "similarCompound" in result["pubchemResults"] and result["pubchemResults"]["similarCompound"]:
-                    ranked_compounds = result["pubchemResults"]["similarCompound"][:10]  # ✅ Limit to top 10
-                    st.markdown("### Top 10 Similar Compounds (Ranked by Similarity)")
-            
-                    for i, compound in enumerate(ranked_compounds):
-                        st.markdown(f'<div class="compound-card">', unsafe_allow_html=True)
-            
-                        col_a, col_b = st.columns([2, 1])
-            
-                        with col_a:
-                            st.markdown(f"**Name:** {compound['recordTitle']}")
-                            st.markdown(f"**Compound ID:** {compound['cid']}")
-                            st.markdown(f"**IUPAC Name:** {compound.get('iupacName', 'N/A')}")
-                            st.markdown(f"**SMILES:** {compound['smile']}")
-                            # ✅ Display similarity score
-                            similarity_score = compound.get('similarity_score')
-                            if similarity_score is not None:
-                                st.markdown(f"**Similarity Score:** `{similarity_score:.4f}`")
-            
-                        with col_b:
-                            mol_img = render_molecule(compound['smile'])
-                            if mol_img:
-                                st.image(mol_img, use_container_width=True)  # ✅ Fix deprecated warning
-                        
-                        st.markdown('</div>', unsafe_allow_html=True)
-                else:
-                    st.info("No similar compounds found.")
-
-
+        # Similar compounds tab
+        with tabs[1]:
+            if "similarCompound" in result["pubchemResults"] and result["pubchemResults"]["similarCompound"]:
+                for i, compound in enumerate(result["pubchemResults"]["similarCompound"]):
+                    st.markdown(f'<div class="compound-card">', unsafe_allow_html=True)
+                    col_a, col_b = st.columns([2, 1])
+                    
+                    with col_a:
+                        st.markdown(f"**Name:** {compound['recordTitle']}")
+                        st.markdown(f"**Compound ID:** {compound['cid']}")
+                        st.markdown(f"**IUPAC Name:** {compound.get('iupacName', 'N/A')}")
+                        st.markdown(f"**SMILES:** {compound['smile']}")
+                    
+                    with col_b:
+                        mol_img = render_molecule(compound['smile'])
+                        if mol_img:
+                            st.image(mol_img, use_column_width=True)
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("No similar compounds found.")
         
         # Patents tab
         with tabs[2]:

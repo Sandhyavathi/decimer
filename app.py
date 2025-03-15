@@ -7,15 +7,19 @@ import requests
 import time
 import logging
 from werkzeug.utils import secure_filename
-from DECIMER import predict_SMILES
-from rdkit import Chem
-from rdkit import DataStructs
-from rdkit.Chem import AllChem
+from flask_cors import CORS
+import pickle
+import tensorflow as tf
+from utils import decode_image, decoder
+from functools import lru_cache
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)
+
+MAX_SEARCH_RETURN = 15
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -40,6 +44,38 @@ class APIError(Exception):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def load_model():
+    model_paths = {'DECIMER': './.data/DECIMER_model'}
+    tokenizer_path = os.path.join(
+            model_paths["DECIMER"], "assets", "tokenizer_SMILES.pkl"
+        )
+    tokenizer = pickle.load(open(tokenizer_path, "rb"))
+    model = tf.saved_model.load(model_paths["DECIMER"])
+
+    return model, tokenizer
+
+model, tokenizer = load_model()
+
+def detokenize_output(predicted_array: int) -> str:
+    """This function takes the predicted tokens from the DECIMER model and
+    returns the decoded SMILES string.
+
+    Args:
+        predicted_array (int): Predicted tokens from DECIMER
+
+    Returns:
+        (str): SMILES representation of the molecule
+    """
+    outputs = [tokenizer.index_word[i] for i in predicted_array[0].numpy()]
+    prediction = (
+        "".join([str(elem) for elem in outputs])
+        .replace("<start>", "")
+        .replace("<end>", "")
+    )
+    return prediction
+
 
 def get_compound_patents(cid: int, max_patents: int = 10) -> List[Dict]:
     """
@@ -251,23 +287,26 @@ async def fetch_compound_data(session, cid):
     url = CID_DESCRIBE_URL.format(CID=cid)
     async with session.get(url) as response:
         compound_data = await response.json()
-        title = compound_data["Record"]["RecordTitle"]
-        iupac_name = None
-        smile_string = None
-        
-        for s in compound_data["Record"]["Section"]:
-            if s["TOCHeading"] == "Names and Identifiers":
-                iupac_name, smile_string = similar_compound_info(s)
-                break
-        
-        return {
-            "recordTitle": title,
-            "iupacName": iupac_name,
-            "smile": smile_string,
-            "cid": cid
-        }
+        try:
+            title = compound_data["Record"]["RecordTitle"]
+            iupac_name = None
+            smile_string = None
+            
+            for s in compound_data["Record"]["Section"]:
+                if s["TOCHeading"] == "Names and Identifiers":
+                    iupac_name, smile_string = similar_compound_info(s)
+                    break
+            
+            return {
+                "recordTitle": title,
+                "iupacName": iupac_name,
+                "smile": smile_string,
+                "cid": cid
+            }
+        except:
+            return None
 
-async def get_similar_compounds_async(cid: int, topk=10) -> List[dict]:
+async def get_similar_compounds_async(cid: int, topk=5) -> List[dict]:
     """Asynchronous version of get_similar_compound"""
     similar_compound_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/fastsimilarity_2d/cid/{cid}/cids/JSON"
     
@@ -281,55 +320,15 @@ async def get_similar_compounds_async(cid: int, topk=10) -> List[dict]:
         tasks = [fetch_compound_data(session, similar_cid) for similar_cid in similar_cids]
         similar_compounds = await asyncio.gather(*tasks)
         
-        return similar_compounds
+        return [s for s in similar_compounds if s is not None]
 
-def get_similar_compound(cid: int, topk=10) -> List[dict]:
+def get_similar_compound(cid: int, topk=5) -> List[dict]:
     """Optimized synchronous wrapper for the async implementation"""
     return asyncio.run(get_similar_compounds_async(cid, topk))
 
-
-# Helper function to calculate similarity
-def calculate_smiles_similarity(smiles1, smiles2, method="tanimoto"):
-    mol1 = Chem.MolFromSmiles(smiles1)
-    mol2 = Chem.MolFromSmiles(smiles2)
-
-    if mol1 is None or mol2 is None:
-        return None
+@lru_cache(maxsize=50)
+def process_smile(smile:str) -> Optional[dict]:
     
-    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=2048)
-    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=2048)
-
-    if method.lower() == "tanimoto":
-        similarity = DataStructs.TanimotoSimilarity(fp1, fp2)
-    elif method.lower() == "dice":
-        similarity = DataStructs.DiceSimilarity(fp1, fp2)
-    elif method.lower() == "cosine":
-        similarity = DataStructs.CosineSimilarity(fp1, fp2)
-    else:
-        similarity = DataStructs.TanimotoSimilarity(fp1, fp2)
-
-    return similarity
-
-# Helper function to rank similar compounds based on similarity
-def rank_similar_compounds(base_smile, similar_compounds):
-    ranked_compounds = []
-    
-    for compound in similar_compounds:
-        smile = compound.get("smile")
-        if smile:
-            similarity = calculate_smiles_similarity(base_smile, smile)
-            if similarity is not None:
-                compound["similarity_score"] = similarity
-                ranked_compounds.append(compound)
-    
-    # Sort based on similarity score (highest first)
-    ranked_compounds = sorted(ranked_compounds, key=lambda x: x["similarity_score"], reverse=True)[:10]
-    
-    return ranked_compounds
-
-
-def process_smile(smile: str) -> Optional[dict]:
-    # ✅ Call PubChem API
     res, err = call_pubchem_api(URL.format(SMILE_STRING=smile))
 
     if err:
@@ -351,34 +350,37 @@ def process_smile(smile: str) -> Optional[dict]:
         )
 
     cid = cids[0]
-    
-    # ✅ Get compound details from PubChem
-    c_res = requests.get(CID_DESCRIBE_URL.format(CID=cid))
+    c_res = requests.request("GET", CID_DESCRIBE_URL.format(CID = cid))
     compound_detail = c_res.json()
+    if "Record" not in compound_detail:
+        raise APIError(
+            error_code=500,
+            status_code=500,
+            message="record not found in compound",
+            details=f"record not found in compound {compound_detail}"
+        )
+    
     title = compound_detail["Record"]["RecordTitle"]
+    similar_compound = get_similar_compound(cid, topk=MAX_SEARCH_RETURN)
+    patents = get_compound_patents(cid, max_patents=MAX_SEARCH_RETURN)
 
-    # ✅ Get similar compounds from PubChem
-    similar_compound = get_similar_compound(cid, topk=5)
-
-    # ✅ Rank similar compounds using RDKit similarity
-    ranked_compounds = rank_similar_compounds(smile, similar_compound)
-
-    # ✅ Get related patents
-    patents = get_compound_patents(cid, max_patents=3)
-
-    # ✅ Return results
     return {
-        "currentCompound": {
-            "cid": cid,
-            "recordTitle": title,
+        "currentCompound" : {
+            "cid" : cid,
+            "recordTitle" : title,
             "smile": smile
         },
-        "similarCompound": ranked_compounds,
-        "patents": patents
+        "similarCompound" : similar_compound,
+        "patents" : patents
     }
 
+def create_smile(out, threshold = 0.70):
+    smile = ""
+    for atom, score in out:
+        if score >= threshold:
+            smile += atom
 
-
+    return smile
 
 @app.route('/api/process-image', methods=['POST'])
 def upload_image():
@@ -403,7 +405,13 @@ def upload_image():
         file.save(file_path)
         
         # Process the image
-        results = predict_SMILES(file_path)
+        # sm, results = predict_SMILES(file_path, confidence=True)
+        # results = create_smile(results, threshold=0.7)
+        # results = predict_SMILES(file_path)
+
+        chemical_structure = decode_image(file_path)
+        predicted_tokens, _ = model(tf.constant(chemical_structure))
+        results = decoder(detokenize_output(predicted_tokens))
         res = process_smile(results)
         # Return the results
         return jsonify({
@@ -415,6 +423,28 @@ def upload_image():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/search-smile', methods=['POST'])
+def search_smile():
+    req = request.json
+    result = req.get("smileString")
+
+    if result is None:
+        return jsonify({"error": "No smile string in request"}), 400
+        
+    try:
+        res = process_smile(result)
+        # Return the results
+        return jsonify({
+            "success": True,
+            "pubchemResults" : res
+        })
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

@@ -22,6 +22,9 @@ COPY . .
 # Create the uploads directory
 RUN mkdir -p uploads
 
+## cache model
+RUN python ensure_model.py
+
 # Set environment variables
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
@@ -32,3 +35,4 @@ EXPOSE 5000
 
 # Run the application
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+# CMD ["python3", "app.py"]

@@ -46,20 +46,46 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+import os
+import zipfile
+import requests
+from io import BytesIO
+
 def load_model():
-    model_paths = {}
-    model_paths["DECIMER"] = "/root/decimer/models/DECIMER_model"
-    tokenizer_path = os.path.join(
-        model_paths["DECIMER"], "assets", "tokenizer_SMILES.pkl"
-    )
+    model_dir = "/root/decimer/models/DECIMER_model"
+    
+    #  Create directory if not exists
+    os.makedirs(model_dir, exist_ok=True)
 
+    #  URL for the model
+    model_url = "https://zenodo.org/record/8300489/files/models.zip"
 
-    tokenizer = pickle.load(open(tokenizer_path, "rb"))
-    model = tf.saved_model.load(model_paths["DECIMER"])
+    #  Download model if not already present
+    if not os.path.exists(os.path.join(model_dir, "saved_model.pb")):
+        print("Downloading model...")
+        response = requests.get(model_url, stream=True)
+        if response.status_code == 200:
+            with zipfile.ZipFile(BytesIO(response.content)) as z:
+                z.extractall(model_dir)
+            print("Model downloaded and extracted.")
+        else:
+            raise Exception(f"Failed to download model. Status code: {response.status_code}")
+
+    #  Path for tokenizer
+    tokenizer_path = os.path.join(model_dir, "assets", "tokenizer_SMILES.pkl")
+
+    #  Load tokenizer
+    if not os.path.exists(tokenizer_path):
+        raise FileNotFoundError(f"Tokenizer not found at {tokenizer_path}")
+
+    with open(tokenizer_path, "rb") as f:
+        tokenizer = pickle.load(f)
+
+    # ✅ Load model using TensorFlow
+    model = tf.saved_model.load(model_dir)
 
     return model, tokenizer
 
-model, tokenizer = load_model()
 
 def detokenize_output(predicted_array: int) -> str:
     """This function takes the predicted tokens from the DECIMER model and

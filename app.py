@@ -47,6 +47,7 @@ def allowed_file(filename):
 
 
 def load_model():
+    model_paths = {}
     model_paths["DECIMER"] = "/root/decimer/models/DECIMER_model"
     tokenizer_path = os.path.join(
         model_paths["DECIMER"], "assets", "tokenizer_SMILES.pkl"
